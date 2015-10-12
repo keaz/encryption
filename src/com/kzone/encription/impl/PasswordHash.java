@@ -1,10 +1,11 @@
 package com.kzone.encription.impl;
 
 import com.kzone.encription.HashUtil;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import com.kzone.encription.InitKeyFile;
+
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -12,31 +13,27 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.Properties;
 
-import javax.annotation.PostConstruct;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-
 
 public class PasswordHash implements HashUtil
 {
 
-	// this code from https://crackstation.net/hashing-security.htm
+    // this code from https://crackstation.net/hashing-security.htm
     //"PBKDF2WithHmacSHA1"
-    private final Properties    keyProperties   = new Properties();
-    private String              algorithm       = null;
-    private int                 saltByteSize    = 0;
-    private int                 hashByteSize    = 0;
-    private final int           iterations      = 1000;
+    private final Properties keyProperties = new Properties();
+    private       String     algorithm     = null;
+    private       int        saltByteSize  = 0;
+    private       int        hashByteSize  = 0;
+    private final int        iterations    = 1000;
 
-    private final int           iterationIndex  = 0;
-    private final int           saltIndex       = 1;
-    private final int           hashIndex       = 2;
-    
-    private       Boolean       shout           =  Boolean.FALSE;
+    private final int iterationIndex = 0;
+    private final int saltIndex      = 1;
+    private final int hashIndex      = 2;
+
+    private Boolean shout = Boolean.FALSE;
 
     @Override
     public String createHash(String password) throws NoSuchAlgorithmException,
-                                                     InvalidKeySpecException
+            InvalidKeySpecException
     {
         return createHash(password.toCharArray());
     }
@@ -44,14 +41,13 @@ public class PasswordHash implements HashUtil
     @Override
     public void init() throws IOException
     {
-        loadKeyFile();
 
-        String    stringShout  =  keyProperties.getProperty("shout");
-        this.shout  = stringShout  == null ? Boolean.FALSE : Boolean.valueOf(stringShout);
-        
-        String    localAlgorithm     =  keyProperties.getProperty("hash.algorithm");
-        int       localSaltByteSize  =  Integer.parseInt(keyProperties.getProperty("hash.saltByteSize"));
-        int       localHashByteSize  =  Integer.parseInt(keyProperties.getProperty("hash.hashByteSize"));
+        String stringShout = InitKeyFile.getProperty("shout");
+        this.shout = stringShout == null ? Boolean.FALSE : Boolean.valueOf(stringShout);
+
+        String localAlgorithm    = InitKeyFile.getProperty("hash.algorithm");
+        int    localSaltByteSize = Integer.parseInt(InitKeyFile.getProperty("hash.saltByteSize"));
+        int    localHashByteSize = Integer.parseInt(InitKeyFile.getProperty("hash.hashByteSize"));
 
         setHashAlgorithm(localAlgorithm);
         setHashByteSize(localHashByteSize);
@@ -59,12 +55,6 @@ public class PasswordHash implements HashUtil
 
     }
 
-    private void loadKeyFile() throws FileNotFoundException, IOException
-    {
-        InputStream input = this.getClass().getClassLoader()
-                            .getResourceAsStream("security.properties");
-        keyProperties.load(input);
-    }
 
     private void setHashAlgorithm(String algorithm)
     {
@@ -97,30 +87,30 @@ public class PasswordHash implements HashUtil
      * @return a salted PBKDF2 hash of the password
      */
     private String createHash(char[] password) throws NoSuchAlgorithmException,
-                                                      InvalidKeySpecException
+            InvalidKeySpecException
     {
 
         assert algorithm != null : "algoritm cannot be null";
-        
-        if(shout)
+
+        if (shout)
         {
-            System.err.printf("Creating [%s]%n","salt");
+            System.err.printf("Creating [%s]%n", "salt");
         }
         // Generate a random salt
-        SecureRandom    random  =  new SecureRandom();
-        byte[]          salt    =  new byte[saltByteSize];
+        SecureRandom random = new SecureRandom();
+        byte[]       salt   = new byte[saltByteSize];
         random.nextBytes(salt);
-        
-        if(shout)
+
+        if (shout)
         {
-            System.err.printf("Hashing the [%s] from %s%n","raw string",password);
+            System.err.printf("Hashing the [%s] from %s%n", "raw string", password);
         }
         // Hash the password
         byte[] hash = pbkdf2(password, salt, iterations, hashByteSize);
-        
-        if(shout)
+
+        if (shout)
         {
-            System.err.printf("Creating the final [%s] %n","hash");
+            System.err.printf("Creating the final [%s] %n", "hash");
         }
         // format iterations:salt:hash
         return iterations + ":" + toHex(salt) + ":" + toHex(hash);
@@ -136,7 +126,7 @@ public class PasswordHash implements HashUtil
     /**
      * Validates a password using a hash.
      *
-     * @param password the password to check
+     * @param password    the password to check
      * @param correctHash the hash of the valid password
      * @return true if the password is correct, false if not
      */
@@ -144,24 +134,24 @@ public class PasswordHash implements HashUtil
             throws NoSuchAlgorithmException, InvalidKeySpecException
     {
         // Decode the hash into its parameters
-        String[]    params      =  correctHash.split(":");
-        int         iterations  =  Integer.parseInt(params[iterationIndex]);
-        
-        if(shout)
+        String[] params     = correctHash.split(":");
+        int      iterations = Integer.parseInt(params[iterationIndex]);
+
+        if (shout)
         {
             System.err.printf("Converting salt from hexadecimal characters into a byte array %n");
         }
-        byte[]      salt        =  fromHex(params[saltIndex]);
-        
-        if(shout)
+        byte[] salt = fromHex(params[saltIndex]);
+
+        if (shout)
         {
             System.err.printf("Converting password from hexadecimal characters into a byte array %n");
         }
-        byte[]      hash        =  fromHex(params[hashIndex]);
+        byte[] hash = fromHex(params[hashIndex]);
         // Compute the hash of the provided password, using the same salt,
         // iteration count, and hash length
-        byte[]      testHash    =   pbkdf2(password, salt, iterations, hash.length);
-		// Compare the hashes in constant time. The password is correct if
+        byte[] testHash = pbkdf2(password, salt, iterations, hash.length);
+        // Compare the hashes in constant time. The password is correct if
         // both hashes match.
         return slowEquals(hash, testHash);
     }
@@ -177,7 +167,7 @@ public class PasswordHash implements HashUtil
      */
     private boolean slowEquals(byte[] a, byte[] b)
     {
-        if(shout)
+        if (shout)
         {
             System.err.printf("Comparing two byte arrays in length-constant time%n");
         }
@@ -193,23 +183,23 @@ public class PasswordHash implements HashUtil
     /**
      * Computes the PBKDF2 hash of a password.
      *
-     * @param password the password to hash.
-     * @param salt the salt
+     * @param password   the password to hash.
+     * @param salt       the salt
      * @param iterations the iteration count (slowness factor)
-     * @param bytes the length of the hash to compute in bytes
+     * @param bytes      the length of the hash to compute in bytes
      * @return the PBDKF2 hash of the password
      */
     private byte[] pbkdf2(char[] password, byte[] salt, int iterations,
-            int bytes) throws NoSuchAlgorithmException, InvalidKeySpecException
+                          int bytes) throws NoSuchAlgorithmException, InvalidKeySpecException
     {
-        if(shout)
+        if (shout)
         {
             System.err.printf("Creating PBEKeySpec %n");
         }
-        PBEKeySpec spec = new PBEKeySpec(password, salt, iterations, bytes * 8);
-        SecretKeyFactory skf = SecretKeyFactory.getInstance(algorithm);
-        
-        if(shout)
+        PBEKeySpec       spec = new PBEKeySpec(password, salt, iterations, bytes * 8);
+        SecretKeyFactory skf  = SecretKeyFactory.getInstance(algorithm);
+
+        if (shout)
         {
             System.err.printf("Computing the PBKDF2 hash of the {%s} %n", Arrays.toString(password));
         }
@@ -224,7 +214,7 @@ public class PasswordHash implements HashUtil
      */
     private byte[] fromHex(String hex)
     {
-        if(shout)
+        if (shout)
         {
             System.err.printf("Converting the {%s} in to byte array %n", hex);
         }
@@ -245,12 +235,12 @@ public class PasswordHash implements HashUtil
      */
     private String toHex(byte[] array)
     {
-        
-        BigInteger bi = new BigInteger(1, array);
-        String hex = bi.toString(16);
-        int paddingLength = (array.length * 2) - hex.length();
 
-        if(shout)
+        BigInteger bi            = new BigInteger(1, array);
+        String     hex           = bi.toString(16);
+        int        paddingLength = (array.length * 2) - hex.length();
+
+        if (shout)
         {
             System.err.printf("Converting the {%s} into a hexadecimal String %n", hex);
         }

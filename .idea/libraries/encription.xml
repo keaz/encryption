@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="encription">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Soft/java-libs/bcprov-jdk15on-1.52.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
